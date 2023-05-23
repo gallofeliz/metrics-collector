@@ -34,9 +34,11 @@ export class LoggerOutputHandler implements OutputHandler {
 export class InfluxDBOutputHandler implements OutputHandler {
     protected db?: InfluxDB
     protected dbName: string
+    protected duration?: number
 
-    public constructor({dbName}: {dbName: string}) {
+    public constructor({dbName, duration}: {dbName: string, duration?: number}) {
         this.dbName = dbName
+        this.duration = duration
     }
 
     protected async getDb() {
@@ -45,17 +47,29 @@ export class InfluxDBOutputHandler implements OutputHandler {
                 database: this.dbName
             })
             await this.db.createDatabase(this.dbName)
+
+            if (this.duration) {
+                await this.db.createRetentionPolicy('metricCollector', {
+                    database: this.dbName,
+                    duration: this.duration.toString() + 'ms',
+                    replication: 1
+                })
+            }
         }
 
         return this.db
     }
 
     async handle(metrics: Metric|Metric[]) {
-        await (await this.getDb()).writePoints((Array.isArray(metrics) ? metrics : [metrics] ).map(metric => ({
+        const influxPoints: any = (Array.isArray(metrics) ? metrics : [metrics] ).map(metric => ({
             measurement: snakeCase(metric.name),
             tags: mapKeys(flatten(metric.tags || {}), (_, k) => snakeCase(k as any)),
             fields: mapKeys(flatten(metric.values), (_, k) => snakeCase(k as any)),
-            timestamp: metric.date
-        })))
+            timestamp: metric.date,
+        }))
+
+        await (await this.getDb()).writePoints(influxPoints, {
+            retentionPolicy: this.duration ? 'metricCollector' : undefined
+        })
     }
 }
