@@ -1,0 +1,44 @@
+{
+  "name": "metrics-collector",
+  "version": "1.0.0",
+  "description": "Metrics collector like Telegraf",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gallofeliz/metrics-collector.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gallofeliz/metrics-collector/issues"
+  },
+  "homepage": "https://github.com/gallofeliz/metrics-collector#readme",
+  "dependencies": {
+    "@gallofeliz/application": "^0.2.3",
+    "@gallofeliz/docker-logs": "^0.1.2",
+    "@gallofeliz/http-request": "^0.1.2",
+    "@gallofeliz/http-server": "^0.3.1",
+    "@gallofeliz/run-process": "^0.1.2",
+    "@gallofeliz/scheduler": "^0.2.1",
+    "@types/flat": "^5.0.2",
+    "dockerode": "^3.3.5",
+    "flat": "^5.0.2",
+    "glob": "^10.2.5",
+    "influx": "^5.9.3",
+    "jsonata": "^2.0.3",
+    "lodash": "^4.17.21",
+    "matcher": "^4.0.0",
+    "solar-calc": "^1.1.0",
+    "systeminformation": "^5.17.12"
+  },
+  "devDependencies": {
+    "@gallofeliz/typescript-transform-to-json-schema": "^0.1.2",
+    "@types/dockerode": "^3.3.17",
+    "@types/lodash": "^4.14.194",
+    "ttypescript": "^1.5.15",
+    "typescript": "^4.9.5"
+  }
+}
