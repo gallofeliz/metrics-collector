@@ -605,7 +605,7 @@ runApp<UserConfig>({
     },
     async run({abortSignal, logger, config, collects}) {
 
-        const outputHandler = new InfluxDBOutputHandler({dbName: 'mydb'})
+        const outputHandler = new InfluxDBOutputHandler({dbName: 'main'})
         const scheduler = new Scheduler({logger})
         const hostname = os.hostname()
         const dockerLogsService = new DockerLogs
