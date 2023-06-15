@@ -406,23 +406,22 @@ runApp<UserConfig>({
                                     return
                                 }
 
-                                if (!['done', 'failed'].includes(objLog.status)) {
+                                if (objLog.level === 'info' && !['done', 'failed'].includes(objLog.status)) {
                                     return
                                 }
+
+                                const status = objLog.status || 'error'
 
                                 outputHandler.handle({
                                     name: 'doctolib',
                                     date: log.date,
                                     tags: {
-                                        level: objLog.level,
-                                        id: objLog.id,
-                                        status: objLog.status,
+                                        status,
                                     },
                                     values: {
                                         nb: 1
                                     }
                                 })
-
                             }
                         })
                     }
