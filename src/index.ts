@@ -243,7 +243,7 @@ runApp<UserConfig>({
                                             }
                                         },
                                         values: {
-                                            uptime: triggerDate.getTime() - (a.created * 1000),
+                                            uptime: triggerDate.getTime() - (a.started * 1000),
                                             memUsage: b.memUsage,
                                             memPct: b.memPercent,
                                             cpuPct: b.cpuPercent
