@@ -7,10 +7,7 @@ import { OutputHandler, InfluxDBOutputHandler } from './output'
 import { Scheduler } from "@gallofeliz/scheduler";
 import {
     networkStats/*, networkConnections */,
-    mem,
-    dockerInfo,
-    dockerContainers,
-    dockerContainerStats
+    mem
 } from "systeminformation";
 import os from 'os'
 import { DockerLogs } from '@gallofeliz/docker-logs'
@@ -20,6 +17,7 @@ import { runProcess } from "@gallofeliz/run-process";
 import { glob } from 'glob'
 import { readFile } from 'fs/promises'
 import {tsToJsSchema} from '@gallofeliz/typescript-transform-to-json-schema'
+import Dockerode from 'dockerode'
 
 interface MetricCollect {
     name: string
@@ -30,6 +28,7 @@ interface MetricCollect {
         scheduler: Scheduler,
         hostname: string
         dockerLogsService: DockerLogs
+        dockerode: Dockerode
     }) => void
 }
 
@@ -181,13 +180,13 @@ runApp<UserConfig>({
 
                 {
                     name: 'host.docker.stats',
-                    handle({scheduler, outputHandler, hostname}) {
+                    handle({scheduler, outputHandler, hostname, dockerode}) {
                         scheduler.addSchedule({
                             id: 'host.dockerstats',
                             schedule: '*/5 * * * *',
                             async fn({triggerDate}) {
 
-                                const e = await dockerInfo()
+                                const infos = await dockerode.info()
 
                                 outputHandler.handle({
                                     name: 'host.dockerstats',
@@ -196,13 +195,14 @@ runApp<UserConfig>({
                                         hostname
                                     },
                                     values: {
-                                        nbContainers: e.containers,
+                                        nbContainers: infos.Containers,
                                         nbContainersByState: {
-                                            running: e.containersRunning,
-                                            paused: e.containersPaused,
-                                            stopped: e.containersStopped
+                                            running: infos.ContainersRunning,
+                                            paused: infos.ContainersPaused,
+                                            stopped: infos.ContainersStopped
                                         },
-                                        nbImages: e.images,
+                                        nbImages: infos.Images,
+                                        nbWarnings: infos.Warnings?.length || 0
                                     }
                                 })
                             },
@@ -211,26 +211,54 @@ runApp<UserConfig>({
                 },
                 {
                     name: 'host.docker.containers.stats',
-                    handle({scheduler, outputHandler, hostname}) {
+                    handle({scheduler, outputHandler, hostname, dockerode}) {
                         scheduler.addSchedule({
                             id: 'host.docker.containers.stats',
                             schedule: '*/5 * * * *',
                             async fn({triggerDate}) {
 
-                                const f = await dockerContainers(false)
-                                const activeIds = f.map(c => c.id)
-                                const g = await dockerContainerStats(activeIds.join(','))
+                                const containers = await dockerode.listContainers({all: true})
 
+                                function mapState(state: string) {
+                                    switch(state.toLowerCase()) {
+                                        case 'created':
+                                            return 0
+                                        case 'running':
+                                            return 1
+                                        case 'pause':
+                                            return 2
+                                        case 'restarting':
+                                            return 3
+                                        case 'removing':
+                                            return -1
+                                        case 'exited':
+                                            return -2
+                                        case 'dead':
+                                            return -3
+                                        default:
+                                            return -10
+                                    }
+                                }
 
-                                const h = f.reduce((h, c) => ({...h, [c.id]: c}), {})
-                                const i = g.reduce((h, c) => ({...h, [c.id]: c}), {})
+                                function mapHealth(status: string) {
+                                    switch(status.toLowerCase()) {
+                                        case 'none':
+                                            return 0
+                                        case 'starting':
+                                            return 1
+                                        case 'healthy':
+                                            return 2
+                                        case 'unhealthy':
+                                            return -1
+                                        default:
+                                            return -10
+                                    }
+                                }
 
-                                outputHandler.handle(Object.keys(h).map(containerId => {
+                                const stats = await Promise.all(containers.map(async container => {
 
-                                    // @ts-ignore
-                                    const a = h[containerId]
-                                    // @ts-ignore
-                                    const b = i[containerId]
+                                    const inspect = await dockerode.getContainer(container.Id).inspect()
+                                    const stats = await dockerode.getContainer(container.Id).stats({stream: false})
 
                                     return {
                                         name: 'host.docker.containers.stats',
@@ -238,19 +266,39 @@ runApp<UserConfig>({
                                         tags: {
                                             hostname,
                                             container: {
-                                                id: a.id,
-                                                name: a.name
+                                                id: container.Id,
+                                                name: container.Names[0].substring(1),
+                                                 ...container.Labels['com.docker.compose.project']
+                                                    && {
+                                                        compose: {
+                                                            project: container.Labels['com.docker.compose.project'],
+                                                            service: container.Labels['com.docker.compose.service']
+                                                        }
+                                                    }
+
                                             }
                                         },
                                         values: {
-                                            uptime: triggerDate.getTime() - (a.started * 1000),
-                                            memUsage: b.memUsage,
-                                            memPct: b.memPercent,
-                                            cpuPct: b.cpuPercent
+                                            createdSince: triggerDate.getTime() - (container.Created * 1000),
+                                            ...inspect.State.Running && {uptime: triggerDate.getTime() - (new Date(inspect.State.StartedAt)).getTime()},
+                                            ...inspect.State.StartedAt && {lastStartedSince: triggerDate.getTime() - (new Date(inspect.State.StartedAt)).getTime()},
+                                            ...inspect.State.FinishedAt && {lastFinishedSince: triggerDate.getTime() - (new Date(inspect.State.FinishedAt)).getTime()},
+                                            ...inspect.State.ExitCode && {lastExitCode: inspect.State.ExitCode},
+                                            state: mapState(container.State),
+                                            restartCount: inspect.RestartCount,
+                                            health: mapHealth(inspect.State.Health?.Status || 'none'),
+                                            //nbPids: stats.pids_stats?.current,
+                                            memUsage: stats.memory_stats.usage ? stats.memory_stats.usage - (stats.memory_stats.stats.cache || 0) : 0,
+                                            memPct: stats.memory_stats.usage ? (stats.memory_stats.usage - (stats.memory_stats.stats.cache || 0)) / stats.memory_stats.limit * 100 : 0,
+                                            cpuPct: stats.cpu_stats.cpu_usage.total_usage ? ((stats.cpu_stats.cpu_usage.total_usage - stats.precpu_stats.cpu_usage.total_usage)
+                                                / (stats.cpu_stats.system_cpu_usage - stats.precpu_stats.system_cpu_usage)) * stats.cpu_stats.online_cpus * 100 : 0,
                                         }
-                                    }
 
+
+                                    }
                                 }))
+
+                                outputHandler.handle(stats)
                             },
                         })
                     }
@@ -609,6 +657,7 @@ runApp<UserConfig>({
         const hostname = os.hostname()
         const dockerLogsService = new DockerLogs
         process.setMaxListeners(collects.length * 2)
+        const dockerode = new Dockerode()
 
         collects.forEach((collect: any) => {
             logger.info('Registering collect ' + collect.name)
@@ -618,7 +667,8 @@ runApp<UserConfig>({
                 outputHandler,
                 scheduler,
                 hostname,
-                dockerLogsService
+                dockerLogsService,
+                dockerode
             })
         })
 
