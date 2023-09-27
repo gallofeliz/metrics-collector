@@ -49,7 +49,6 @@ runApp<UserConfig>({
     },
     services: {
         collects({config}) {
-
             const collects: MetricCollect[] = [
                 {
                     name: 'iAlive',
@@ -303,70 +302,32 @@ runApp<UserConfig>({
                         })
                     }
                 },
-                {
-                    name: 'chickencoop',
-                    handle({scheduler, abortSignal, logger, outputHandler}) {
-                        scheduler.addSchedule({
-                            id: 'chickencoop',
-                            schedule: '*/5 * * * *',
-                            async fn({triggerDate}) {
-                                const coop: any = await httpRequest({
-                                    abortSignal,
-                                    logger,
-                                    url: 'http://chickencooppi',
-                                    responseType: 'json',
-                                })
+                // {
+                //     name: 'solar',
+                //     handle({scheduler, outputHandler, hostname}) {
+                //         scheduler.addSchedule({
+                //             id: 'solar',
+                //             schedule: '*/5 * * * *',
+                //             async fn({triggerDate}) {
+                //                 const solar = new SolarCalc(triggerDate, 49.0940359, 1.4867724)
 
-                                const strStatusToInt: any = {
-                                    "CLOSED (LOCKED)": -2,
-                                    "CLOSED (UNLOCKED)": -1,
-                                    "CLOSED": 0,
-                                    "OPEN": 1,
-                                    "OPEN (PARTIAL)": 2,
-                                    "OPEN (TOTAL)": 3
-                                }
-
-                                outputHandler.handle({
-                                    name: 'chickencoop',
-                                    date: triggerDate,
-                                    values: {
-                                        temperature: coop.temperature,
-                                        humidity: coop.humidity,
-                                        humanDoorStatus: strStatusToInt[coop.humanDoorStatus as string],
-                                        chickenDoorStatus: strStatusToInt[coop.chickenDoorStatus as string]
-                                    }
-                                })
-
-                            },
-                        })
-                    }
-                },
-                {
-                    name: 'solar',
-                    handle({scheduler, outputHandler, hostname}) {
-                        scheduler.addSchedule({
-                            id: 'solar',
-                            schedule: '*/5 * * * *',
-                            async fn({triggerDate}) {
-                                const solar = new SolarCalc(triggerDate, 49.0940359, 1.4867724)
-
-                                outputHandler.handle({
-                                    name: 'solar',
-                                    date: triggerDate,
-                                    tags: {
-                                        hostname
-                                    },
-                                    values: {
-                                        sunLight: (triggerDate > solar.sunrise && triggerDate < solar.sunset) ? 1 : 0,
-                                        civilLight: (triggerDate > solar.civilDawn && triggerDate < solar.civilDusk) ? 1 : 0,
-                                        nauticalLight: (triggerDate > solar.nauticalDawn && triggerDate < solar.nauticalDusk) ? 1 : 0,
-                                        astronomicalLight: (triggerDate > solar.astronomicalDawn && triggerDate < solar.astronomicalDusk) ? 1 : 0,
-                                    }
-                                })
-                            },
-                        })
-                    }
-                },
+                //                 outputHandler.handle({
+                //                     name: 'solar',
+                //                     date: triggerDate,
+                //                     tags: {
+                //                         hostname
+                //                     },
+                //                     values: {
+                //                         sunLight: (triggerDate > solar.sunrise && triggerDate < solar.sunset) ? 1 : 0,
+                //                         civilLight: (triggerDate > solar.civilDawn && triggerDate < solar.civilDusk) ? 1 : 0,
+                //                         nauticalLight: (triggerDate > solar.nauticalDawn && triggerDate < solar.nauticalDusk) ? 1 : 0,
+                //                         astronomicalLight: (triggerDate > solar.astronomicalDawn && triggerDate < solar.astronomicalDusk) ? 1 : 0,
+                //                     }
+                //                 })
+                //             },
+                //         })
+                //     }
+                // },
                 {
                     name: 'host.netstats',
                     handle({scheduler, outputHandler, hostname}) {
@@ -391,6 +352,88 @@ runApp<UserConfig>({
 
                                 })))
                             },
+                        })
+                    }
+                },
+                {
+                    name: 'host.docker.containers.logs',
+                    handle({scheduler, dockerLogsService, abortSignal, logger, outputHandler, hostname}) {
+                        let aggregate: { [k: string]: { [k: string]: number } } = {}
+
+                        function increment(containerName: string, level: string) {
+                            if (!aggregate[containerName]) {
+                                aggregate[containerName] = {}
+                            }
+
+                            if (aggregate[containerName][level] === undefined) {
+                                aggregate[containerName][level] = 0
+                            }
+
+                            aggregate[containerName][level]++
+                        }
+
+                        dockerLogsService.watch({
+                            namePattern: '*',
+                            abortSignal,
+                            onLog(log) {
+                                const isJson = log.container.name.match(/youtube|collector|backuper|doctolib|traefik/i)
+                                const isLvl = log.container.name.match(/grafana|influx/i)
+
+                                if (isJson) {
+                                    try {
+                                        const lg = JSON.parse(log.message)
+                                        increment(log.container.name, lg.level)
+                                    } catch (e) {
+                                        increment(log.container.name, 'unknown')
+                                    }
+                                } else if (isLvl) {
+                                    const search = log.message.match(' lvl=([^ ]+) ')
+
+                                    if (search && search[1]) {
+                                        increment(log.container.name, search[1])
+                                    } else {
+                                        increment(log.container.name, 'unknown')
+                                    }
+
+                                } else {
+                                    increment(log.container.name, 'unknown')
+                                }
+
+                            }
+                        })
+
+                        scheduler.addSchedule({
+                            id: 'host.docker.containers.logs',
+                            schedule: '* * * * *',
+                            fn({triggerDate}) {
+
+                                const stats = Object.keys(aggregate).reduce((stats, containerName) => {
+
+                                    const containerStats = Object.keys(aggregate[containerName]).map(level => {
+                                            return {
+                                                name: 'metricsCollectLogs',
+                                                date: triggerDate,
+                                                tags: {
+                                                    hostname,
+                                                    container: {
+                                                        name: containerName
+                                                    },
+                                                    level
+                                                },
+                                                values: {
+                                                    nb: aggregate[containerName][level]
+                                                }
+                                            }
+                                        })
+
+
+                                    return stats.concat(containerStats as any)
+
+                                }, [])
+
+                                outputHandler.handle(stats)
+                                aggregate = {}
+                            }
                         })
                     }
                 },
