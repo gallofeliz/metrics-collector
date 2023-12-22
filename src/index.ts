@@ -80,6 +80,44 @@ runApp<UserConfig>({
                         })
                     }
                 },
+
+                {
+                    name: 'boiler-around-temp',
+                    handle({scheduler, abortSignal, logger, outputHandler}) {
+                        scheduler.addSchedule({
+                            id: 'boiler-around-temp',
+                            schedule: '*/15 * * * *',
+                            async fn({triggerDate}) {
+
+
+
+                                try {
+                                    const {temperature} = await httpRequest<{temperature: number}>({
+                                        abortSignal,
+                                        logger,
+                                        url: 'http://192.168.1.2:1234/f0:c7:7f:85:bd:30',
+                                        responseType: 'json',
+                                    })
+
+                                    outputHandler.handle({
+                                        name: 'boiler_around_temp',
+                                        date: triggerDate,
+                                        values: {
+                                            temperature,
+                                        }
+                                    })
+
+
+                                } catch (e) {
+                                    logger.error('Error', {e})
+                                    return
+                                }
+
+                            },
+                        })
+                    }
+                },
+
                 {
                     name: 'grafanaToHcPing',
                     handle({scheduler, abortSignal, logger}) {
@@ -489,7 +527,7 @@ runApp<UserConfig>({
                                 try {
                                     objLog = JSON.parse(log.message)
                                 } catch (e) {
-                                    logger.error('Unable to parse log for doctolib')
+                                    logger.error('Unable to parse log for doctolib', {logMessage: log.message})
                                     return
                                 }
 
