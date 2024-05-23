@@ -7,7 +7,10 @@ import { OutputHandler, InfluxDBOutputHandler } from './output'
 import { Scheduler } from "@gallofeliz/scheduler";
 import {
     networkStats/*, networkConnections */,
-    mem
+    mem,
+    cpuTemperature,
+    diskLayout,
+    graphics
 } from "systeminformation";
 import os from 'os'
 import { DockerLogs } from '@gallofeliz/docker-logs'
@@ -174,6 +177,34 @@ runApp<UserConfig>({
                                         load1,
                                         load5,
                                         load15
+                                    }
+                                })
+                            },
+                        })
+                    }
+                },
+                {
+                    name: 'host.temperatures',
+                    handle({scheduler, outputHandler, hostname}) {
+                        scheduler.addSchedule({
+                            id: 'host.temperatures',
+                            schedule: '* * * * *',
+                            async fn({triggerDate}) {
+
+                                const cpuTemperatureVal = await cpuTemperature()
+                                const disksLayoutVal = await diskLayout()
+                                const graphicsVal = await graphics()
+
+                                outputHandler.handle({
+                                    name: 'host.temperatures',
+                                    date: triggerDate,
+                                    tags: {
+                                        hostname
+                                    },
+                                    values: {
+                                        cpuMain: cpuTemperatureVal.main,
+                                        disk: disksLayoutVal[0].temperature,
+                                        gpu: graphicsVal.controllers[0].temperatureGpu
                                     }
                                 })
                             },
