@@ -203,8 +203,8 @@ runApp<UserConfig>({
                                     },
                                     values: {
                                         cpuMain: cpuTemperatureVal.main,
-                                        disk: disksLayoutVal[0].temperature,
-                                        gpu: graphicsVal.controllers[0].temperatureGpu
+                                        ...disksLayoutVal[0] && disksLayoutVal[0].temperature && {disk: disksLayoutVal[0].temperature},
+                                        ...graphicsVal.controllers[0] && graphicsVal.controllers[0].temperatureGpu && {gpu: graphicsVal.controllers[0].temperatureGpu}
                                     }
                                 })
                             },
@@ -765,7 +765,9 @@ runApp<UserConfig>({
     async run({abortSignal, logger, config, collects}) {
 
         const outputHandler = new InfluxDBOutputHandler({dbName: 'main'})
-        const scheduler = new Scheduler({logger})
+        const scheduler = new Scheduler({logger, onError: (error, scheduleId) => {
+            logger.error('Error on schedule', {error, scheduleId})
+        }})
         const hostname = os.hostname()
         const dockerLogsService = new DockerLogs
         process.setMaxListeners(collects.length * 2)
