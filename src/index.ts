@@ -83,44 +83,6 @@ runApp<UserConfig>({
                         })
                     }
                 },
-
-                {
-                    name: 'boiler-around-temp',
-                    handle({scheduler, abortSignal, logger, outputHandler}) {
-                        scheduler.addSchedule({
-                            id: 'boiler-around-temp',
-                            schedule: '*/15 * * * *',
-                            async fn({triggerDate}) {
-
-
-
-                                try {
-                                    const {temperature} = await httpRequest<{temperature: number}>({
-                                        abortSignal,
-                                        logger,
-                                        url: 'http://192.168.1.2:1234/f0:c7:7f:85:bd:30',
-                                        responseType: 'json',
-                                    })
-
-                                    outputHandler.handle({
-                                        name: 'boiler_around_temp',
-                                        date: triggerDate,
-                                        values: {
-                                            temperature,
-                                        }
-                                    })
-
-
-                                } catch (e) {
-                                    logger.error('Error', {e})
-                                    return
-                                }
-
-                            },
-                        })
-                    }
-                },
-
                 {
                     name: 'grafanaToHcPing',
                     handle({scheduler, abortSignal, logger}) {
@@ -695,63 +657,58 @@ runApp<UserConfig>({
                             schedule: '*/5 * * * *',
                             async fn({triggerDate}) {
 
-                                try {
-                                    // from https://github.com/influxdata/telegraf/blob/master/plugins/inputs/processes/processes_notwindows.go
-                                    const dirs = await glob('+([0-9])', { cwd: '/hostproc', absolute: true})
+                                // from https://github.com/influxdata/telegraf/blob/master/plugins/inputs/processes/processes_notwindows.go
+                                const dirs = await glob('+([0-9])', { cwd: '/hostproc', absolute: true})
 
-                                    const processesData = await Promise.all(
-                                        dirs
-                                        .map(dir => dir + '/stat')
-                                        .map(file => readFile(file, { encoding: 'utf8' }).catch(e => {
-                                            if (e.code === 'ENOENT' || e.code === 'ESRCH') {
-                                                return
-                                            }
-
-                                            logger.error('Error reading file host.processes', {e})
-                                        }))
-                                    )
-
-                                    const stats = processesData.reduce((stats, processData) => {
-                                        if (!processData) {
-                                            return stats
+                                const processesData = await Promise.all(
+                                    dirs
+                                    .map(dir => dir + '/stat')
+                                    .map(file => readFile(file, { encoding: 'utf8' }).catch(e => {
+                                        if (e.code === 'ENOENT' || e.code === 'ESRCH') {
+                                            return
                                         }
 
-                                        stats.nbProcesses++
+                                        logger.error('Error reading file host.processes', {e})
+                                    }))
+                                )
 
-                                        const data = processData.trimRight().split(/ +/)
-
-                                        const nbThreads = data[19]
-
-                                        stats.nbThreads += parseInt(nbThreads)
-
-                                        const state: string = data[2];
-
-                                        // @ts-ignore
-                                        stats.nbProcessesByState[stateMapping[state]]++
-
+                                const stats = processesData.reduce((stats, processData) => {
+                                    if (!processData) {
                                         return stats
-                                    }, {
-                                        nbProcesses: 0,
-                                        nbThreads: 0,
-                                        nbProcessesByState: Object.values(stateMapping).reduce((init, k) => ({...init, [k]: 0}), {})
-                                    })
-
-                                    if (stats.nbProcesses === 0) {
-                                        throw new Error('Something wrong')
                                     }
 
-                                    outputHandler.handle({
-                                        name: 'host.processes',
-                                        date: triggerDate,
-                                        tags: {
-                                            hostname
-                                        },
-                                        values: stats
-                                    })
+                                    stats.nbProcesses++
 
-                                } catch (e) {
-                                    console.error(e)
+                                    const data = processData.trimRight().split(/ +/)
+
+                                    const nbThreads = data[19]
+
+                                    stats.nbThreads += parseInt(nbThreads)
+
+                                    const state: string = data[2];
+
+                                    // @ts-ignore
+                                    stats.nbProcessesByState[stateMapping[state]]++
+
+                                    return stats
+                                }, {
+                                    nbProcesses: 0,
+                                    nbThreads: 0,
+                                    nbProcessesByState: Object.values(stateMapping).reduce((init, k) => ({...init, [k]: 0}), {})
+                                })
+
+                                if (stats.nbProcesses === 0) {
+                                    throw new Error('stats.nbProcesses = 0 ; bad value')
                                 }
+
+                                outputHandler.handle({
+                                    name: 'host.processes',
+                                    date: triggerDate,
+                                    tags: {
+                                        hostname
+                                    },
+                                    values: stats
+                                })
                             },
                         })
                     }
