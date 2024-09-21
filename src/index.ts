@@ -3,7 +3,7 @@ import { httpRequest } from "@gallofeliz/http-request";
 import { runApp } from "@gallofeliz/application";
 import { UniversalLogger } from "@gallofeliz/logger";
 import { runServer } from "@gallofeliz/http-server";
-import { OutputHandler, InfluxDBOutputHandler } from './output'
+import { OutputHandler, InfluxDBOutputHandler, LoggerOutputHandler } from './output'
 import { Scheduler } from "@gallofeliz/scheduler";
 import {
     networkStats/*, networkConnections */,
@@ -36,6 +36,7 @@ interface MetricCollect {
 }
 
 interface UserConfig {
+    testcollect?: string
     ialive: {
         user: string
         pass: string
@@ -80,6 +81,36 @@ runApp<UserConfig>({
                                     })
                                 }
                             }]
+                        })
+                    }
+                },
+                {
+                    name: 'boursorate',
+                    handle({scheduler, abortSignal, logger, outputHandler}) {
+                        scheduler.addSchedule({
+                            id: 'boursorate',
+                            schedule: config.testcollect === this.name ? 1 : '0 19 * * *',
+                            limit: config.testcollect === this.name ? 1 : Infinity,
+                            async fn({triggerDate}) {
+
+                                const rate: number = parseFloat(await runProcess({
+                                    abortSignal,
+                                    command: ['sh', 'bourso.sh'],
+                                    outputType: 'text',
+                                    logger
+                                }))
+
+                                outputHandler.handle({
+                                    name: 'mortgageInterestRates',
+                                    date: triggerDate,
+                                    tags: {
+                                        source: 'boursobank'
+                                    },
+                                    values: {
+                                        rate
+                                    }
+                                })
+                            }
                         })
                     }
                 },
@@ -719,18 +750,22 @@ runApp<UserConfig>({
             return collects
         }
     },
-    async run({abortSignal, logger, config, collects}) {
+    async run({abortSignal, logger, config, collects, abortController}) {
 
-        const outputHandler = new InfluxDBOutputHandler({dbName: 'main'})
+        const outputHandler = config.testcollect ? new LoggerOutputHandler(logger) : new InfluxDBOutputHandler({dbName: 'main'})
         const scheduler = new Scheduler({logger, onError: (error, scheduleId) => {
             logger.error('Error on schedule', {error, scheduleId})
         }})
+
         const hostname = os.hostname()
         const dockerLogsService = new DockerLogs
         process.setMaxListeners(collects.length * 2)
         const dockerode = new Dockerode()
 
         collects.forEach((collect: any) => {
+            if (config.testcollect && collect.name !== config.testcollect) {
+                return
+            }
             logger.info('Registering collect ' + collect.name)
             collect.handle({
                 abortSignal,
@@ -744,5 +779,9 @@ runApp<UserConfig>({
         })
 
         scheduler.start(abortSignal)
+
+        if (config.testcollect) {
+            setTimeout(() => abortController.abort('end of test'), 1000 * 5)
+        }
     }
 })

@@ -6,7 +6,7 @@ ADD package.json package-lock.json ./
 
 RUN npm i
 
-ADD src/ tsconfig.json ./
+ADD src/ tsconfig.json bourso.sh ./
 
 RUN npx ttsc
 
@@ -16,7 +16,7 @@ RUN npm prune --production
 
 FROM node:18-alpine
 
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata curl jq
 
 WORKDIR /app
 
