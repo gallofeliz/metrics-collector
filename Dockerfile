@@ -6,7 +6,7 @@ ADD package.json package-lock.json ./
 
 RUN npm i
 
-ADD src/ tsconfig.json bourso.sh ./
+ADD src/ tsconfig.json bourso.sh pretto.sh empruntis.sh ./
 
 RUN npx ttsc
 

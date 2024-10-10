@@ -21,6 +21,7 @@ import { glob } from 'glob'
 import { readFile } from 'fs/promises'
 import {tsToJsSchema} from '@gallofeliz/typescript-transform-to-json-schema'
 import Dockerode from 'dockerode'
+//import cheerio from 'cheerio'
 
 interface MetricCollect {
     name: string
@@ -114,6 +115,115 @@ runApp<UserConfig>({
                         })
                     }
                 },
+                {
+                    name: 'pretto',
+                    handle({scheduler, abortSignal, logger, outputHandler}) {
+                        scheduler.addSchedule({
+                            id: 'pretto',
+                            schedule: config.testcollect === this.name ? 1 : '52 23 * * *',
+                            limit: config.testcollect === this.name ? 1 : Infinity,
+                            async fn({triggerDate}) {
+
+                                const rate: number = parseFloat(await runProcess({
+                                    abortSignal,
+                                    command: ['sh', 'pretto.sh'],
+                                    outputType: 'text',
+                                    logger
+                                }))
+
+                                outputHandler.handle({
+                                    name: 'mortgageInterestRates',
+                                    date: triggerDate,
+                                    tags: {
+                                        source: 'pretto'
+                                    },
+                                    values: {
+                                        rate
+                                    }
+                                })
+                            }
+                        })
+                    }
+                },
+                {
+                    name: 'empruntisrate',
+                    handle({scheduler, abortSignal, logger, outputHandler}) {
+                        scheduler.addSchedule({
+                            id: 'empruntisrate',
+                            schedule: config.testcollect === this.name ? 1 : '52 23 * * *',
+                            limit: config.testcollect === this.name ? 1 : Infinity,
+                            async fn({triggerDate}) {
+
+                                const rate: number = parseFloat(await runProcess({
+                                    abortSignal,
+                                    command: ['sh', 'empruntis.sh'],
+                                    outputType: 'text',
+                                    logger
+                                }))
+
+                                outputHandler.handle({
+                                    name: 'mortgageInterestRates',
+                                    date: triggerDate,
+                                    tags: {
+                                        source: 'empruntis'
+                                    },
+                                    values: {
+                                        rate
+                                    }
+                                })
+                            }
+                        })
+                    }
+                },
+                // {
+                //     name: 'empruntisrate2',
+                //     handle({scheduler, abortSignal, logger, outputHandler}) {
+                //         scheduler.addSchedule({
+                //             id: 'empruntisrate2',
+                //             schedule: config.testcollect === this.name ? 1 : '52 23 * * *',
+                //             limit: config.testcollect === this.name ? 1 : Infinity,
+                //             async fn({triggerDate}) {
+
+                //                 const toto = await fetch("https://www.empruntis.com/financement/actualites/barometres_regionaux.php", {
+                //                 "headers": {
+                //                   "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+                //                   "accept-language": "fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7",
+                //                   "cache-control": "no-cache",
+                //                   "pragma": "no-cache",
+                //                   "priority": "u=0, i",
+                //                   "sec-ch-ua": "\"Google Chrome\";v=\"129\", \"Not=A?Brand\";v=\"8\", \"Chromium\";v=\"129\"",
+                //                   "sec-ch-ua-mobile": "?0",
+                //                   "sec-ch-ua-platform": "\"Windows\"",
+                //                   "sec-fetch-dest": "document",
+                //                   "sec-fetch-mode": "navigate",
+                //                   "sec-fetch-site": "cross-site",
+                //                   "sec-fetch-user": "?1",
+                //                   "upgrade-insecure-requests": "1",
+                //                   "cookie": "_uetvid=9a610b603de011ef8332ed3fa22a0483; ABTasty=uid=emjs2r7689a203hy&fst=1720522034548&pst=1720522034548&cst=1720631680704&ns=2&pvt=2&pvis=1&th=; axeptio_authorized_vendors=%2Cfacebook_pixel%2Cgoogle_ads%2CGmaps%2CYoutube%2Cgoogle_analytics%2CBing%2Cadrenalead%2Ccriteo%2Cair360%2CGoogle_Ads%2Cyoutube%2Cbing%2CCriteo%2C; axeptio_all_vendors=%2Cfacebook_pixel%2Cgoogle_ads%2CGmaps%2CYoutube%2Cgoogle_analytics%2CBing%2Cadrenalead%2Ccriteo%2Cair360%2CGoogle_Ads%2Cyoutube%2Cbing%2CCriteo%2C; axeptio_cookies={%22$$token%22:%22tukljnhdpofy1xrob8mc3%22%2C%22$$date%22:%222024-07-10T17:14:48.708Z%22%2C%22$$cookiesVersion%22:{%22name%22:%22empruntis-fr%22%2C%22identifier%22:%2262e128444e682cd82d921c05%22}%2C%22facebook_pixel%22:true%2C%22google_ads%22:true%2C%22Gmaps%22:true%2C%22Youtube%22:true%2C%22google_analytics%22:true%2C%22Bing%22:true%2C%22adrenalead%22:true%2C%22criteo%22:true%2C%22air360%22:true%2C%22$$googleConsentMode%22:{%22version%22:2%2C%22analytics_storage%22:%22granted%22%2C%22ad_storage%22:%22granted%22%2C%22ad_user_data%22:%22granted%22%2C%22ad_personalization%22:%22granted%22}%2C%22Google_Ads%22:true%2C%22youtube%22:true%2C%22bing%22:true%2C%22Criteo%22:true%2C%22$$completed%22:true}; _ga=GA1.1.1747774495.1720631689; _air360_i=7218cddb4fb3ec39318ddb41f60f4905; cto_bundle=hJCT-F9EMVRNZTV4S2RTTng3ZEthelRwUjJ6d0F4ejlNbDdaNWJLTklyUlFzZTFhQVZyaTJVSlA0alZXRXcxN3BOQXR4NGVIOHRpcmY4WkZEeHNNRCUyRmRKS1FRa3Vzcm9pWUdwVDlSeVdJa1lWbW9BUHEzMjV1WGNaUWN6UTNEdG5FZWFuMlJwTldHSXZYQ2lQMU85TjZKVzF4MU1oRUEwZzNhSDZ0UWVrVGNuNmFGTSUzRA; _ga_YEP355RS96=GS1.1.1720776620.2.0.1720776620.60.0.0",
+                //                   "Referer": "https://www.google.com/",
+                //                   "Referrer-Policy": "origin"
+                //                 },
+                //                 "body": null,
+                //                 "method": "GET"
+                //                 });
+
+                //                 const caca = cheerio.load(await toto.text())
+                //                 const rate = parseFloat(caca('#ans_15 .moy').text().trim().replace('%', '').replace(',', '.'))
+
+                //                 outputHandler.handle({
+                //                     name: 'mortgageInterestRates',
+                //                     date: triggerDate,
+                //                     tags: {
+                //                         source: 'empruntis2'
+                //                     },
+                //                     values: {
+                //                         rate
+                //                     }
+                //                 })
+                //             }
+                //         })
+                //     }
+                // },
                 {
                     name: 'grafanaToHcPing',
                     handle({scheduler, abortSignal, logger}) {
