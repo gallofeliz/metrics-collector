@@ -24,7 +24,6 @@
     "@gallofeliz/run-process": "^0.1.2",
     "@gallofeliz/scheduler": "^0.2.1",
     "@types/flat": "^5.0.2",
-    "cheerio": "^1.0.0",
     "dockerode": "^3.3.5",
     "flat": "^5.0.2",
     "glob": "^10.2.5",
@@ -37,10 +36,8 @@
   },
   "devDependencies": {
     "@gallofeliz/typescript-transform-to-json-schema": "^0.1.2",
-    "@types/cheerio": "^0.22.35",
     "@types/dockerode": "^3.3.17",
     "@types/lodash": "^4.14.194",
-    "@types/node": "^18.19.55",
     "ttypescript": "^1.5.15",
     "typescript": "^4.9.5"
   }
