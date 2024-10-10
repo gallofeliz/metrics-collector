@@ -120,7 +120,7 @@ runApp<UserConfig>({
                     handle({scheduler, abortSignal, logger, outputHandler}) {
                         scheduler.addSchedule({
                             id: 'pretto',
-                            schedule: config.testcollect === this.name ? 1 : '52 23 * * *',
+                            schedule: config.testcollect === this.name ? 1 : '00 19 * * *',
                             limit: config.testcollect === this.name ? 1 : Infinity,
                             async fn({triggerDate}) {
 
@@ -150,7 +150,7 @@ runApp<UserConfig>({
                     handle({scheduler, abortSignal, logger, outputHandler}) {
                         scheduler.addSchedule({
                             id: 'empruntisrate',
-                            schedule: config.testcollect === this.name ? 1 : '52 23 * * *',
+                            schedule: config.testcollect === this.name ? 1 : '00 19 * * *',
                             limit: config.testcollect === this.name ? 1 : Infinity,
                             async fn({triggerDate}) {
 
