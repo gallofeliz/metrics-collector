@@ -90,7 +90,7 @@ runApp<UserConfig>({
                     handle({scheduler, abortSignal, logger, outputHandler}) {
                         scheduler.addSchedule({
                             id: 'boursorate',
-                            schedule: config.testcollect === this.name ? 1 : '0 19 * * *',
+                            schedule: config.testcollect === this.name ? 1 : '00 19 * * *',
                             limit: config.testcollect === this.name ? 1 : Infinity,
                             async fn({triggerDate}) {
 
@@ -120,7 +120,7 @@ runApp<UserConfig>({
                     handle({scheduler, abortSignal, logger, outputHandler}) {
                         scheduler.addSchedule({
                             id: 'pretto',
-                            schedule: config.testcollect === this.name ? 1 : '00 19 * * *',
+                            schedule: config.testcollect === this.name ? 1 : '02 19 * * *',
                             limit: config.testcollect === this.name ? 1 : Infinity,
                             async fn({triggerDate}) {
 
@@ -150,7 +150,7 @@ runApp<UserConfig>({
                     handle({scheduler, abortSignal, logger, outputHandler}) {
                         scheduler.addSchedule({
                             id: 'empruntisrate',
-                            schedule: config.testcollect === this.name ? 1 : '00 19 * * *',
+                            schedule: config.testcollect === this.name ? 1 : '01 19 * * *',
                             limit: config.testcollect === this.name ? 1 : Infinity,
                             async fn({triggerDate}) {
 
@@ -160,6 +160,8 @@ runApp<UserConfig>({
                                     outputType: 'text',
                                     logger
                                 }))
+
+                                logger.info('Emprentis rate', {rate})
 
                                 outputHandler.handle({
                                     name: 'mortgageInterestRates',
@@ -862,7 +864,14 @@ runApp<UserConfig>({
     },
     async run({abortSignal, logger, config, collects, abortController}) {
 
-        const outputHandler = config.testcollect ? new LoggerOutputHandler(logger) : new InfluxDBOutputHandler({dbName: 'main'})
+        const outputHandler = config.testcollect
+            ? new LoggerOutputHandler(logger)
+            : new InfluxDBOutputHandler({
+                dbName: 'main',
+                onError: (error) => {
+                    logger.error('Error on output', {error})
+                }
+            })
         const scheduler = new Scheduler({logger, onError: (error, scheduleId) => {
             logger.error('Error on schedule', {error, scheduleId})
         }})

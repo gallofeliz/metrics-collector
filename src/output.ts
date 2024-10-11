@@ -34,9 +34,11 @@ export class LoggerOutputHandler implements OutputHandler {
 export class InfluxDBOutputHandler implements OutputHandler {
     protected db?: InfluxDB
     protected dbName: string
+    protected onError: (error: Error) => void
 
-    public constructor({dbName}: {dbName: string}) {
+    public constructor({dbName, onError}: {dbName: string, onError: (error: Error) => void}) {
         this.dbName = dbName
+        this.onError = onError
     }
 
     protected async getDb() {
@@ -51,11 +53,15 @@ export class InfluxDBOutputHandler implements OutputHandler {
     }
 
     async handle(metrics: Metric|Metric[]) {
-        await (await this.getDb()).writePoints((Array.isArray(metrics) ? metrics : [metrics] ).map(metric => ({
-            measurement: snakeCase(metric.name),
-            tags: mapKeys(flatten(metric.tags || {}), (_, k) => snakeCase(k as any)),
-            fields: mapKeys(flatten(metric.values), (_, k) => snakeCase(k as any)),
-            timestamp: metric.date
-        })))
+        try {
+            await (await this.getDb()).writePoints((Array.isArray(metrics) ? metrics : [metrics] ).map(metric => ({
+                measurement: snakeCase(metric.name),
+                tags: mapKeys(flatten(metric.tags || {}), (_, k) => snakeCase(k as any)),
+                fields: mapKeys(flatten(metric.values), (_, k) => snakeCase(k as any)),
+                timestamp: metric.date
+            })))
+        } catch (e) {
+            this.onError(e as Error)
+        }
     }
 }
