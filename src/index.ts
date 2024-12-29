@@ -1,27 +1,25 @@
-//import jsonata from "jsonata"
-import { httpRequest } from "@gallofeliz/http-request";
-import { runApp } from "@gallofeliz/application";
-import { UniversalLogger } from "@gallofeliz/logger";
-import { runServer } from "@gallofeliz/http-server";
+//import jsonata from 'jsonata'
+import { httpRequest } from '@gallofeliz/http-request'
+import { runApp } from '@gallofeliz/application'
+import { UniversalLogger } from '@gallofeliz/logger'
+import { runServer } from '@gallofeliz/http-server'
 import { OutputHandler, InfluxDBOutputHandler, LoggerOutputHandler } from './output'
-import { Scheduler } from "@gallofeliz/scheduler";
+import { Scheduler } from '@gallofeliz/scheduler'
 import {
     networkStats/*, networkConnections */,
     mem,
     cpuTemperature,
     diskLayout,
     graphics
-} from "systeminformation";
+} from 'systeminformation'
 import os from 'os'
 import { DockerLogs } from '@gallofeliz/docker-logs'
 // @ts-ignore
-import SolarCalc from "solar-calc/lib/solarCalc";
-import { runProcess } from "@gallofeliz/run-process";
+import { runProcess } from '@gallofeliz/run-process'
 import { glob } from 'glob'
 import { readFile } from 'fs/promises'
 import {tsToJsSchema} from '@gallofeliz/typescript-transform-to-json-schema'
 import Dockerode from 'dockerode'
-//import cheerio from 'cheerio'
 
 interface MetricCollect {
     name: string
@@ -335,32 +333,6 @@ runApp<UserConfig>({
                         })
                     }
                 },
-                // {
-                //     name: 'solar',
-                //     handle({scheduler, outputHandler, hostname}) {
-                //         scheduler.addSchedule({
-                //             id: 'solar',
-                //             schedule: '*/5 * * * *',
-                //             async fn({triggerDate}) {
-                //                 const solar = new SolarCalc(triggerDate, 49.0940359, 1.4867724)
-
-                //                 outputHandler.handle({
-                //                     name: 'solar',
-                //                     date: triggerDate,
-                //                     tags: {
-                //                         hostname
-                //                     },
-                //                     values: {
-                //                         sunLight: (triggerDate > solar.sunrise && triggerDate < solar.sunset) ? 1 : 0,
-                //                         civilLight: (triggerDate > solar.civilDawn && triggerDate < solar.civilDusk) ? 1 : 0,
-                //                         nauticalLight: (triggerDate > solar.nauticalDawn && triggerDate < solar.nauticalDusk) ? 1 : 0,
-                //                         astronomicalLight: (triggerDate > solar.astronomicalDawn && triggerDate < solar.astronomicalDusk) ? 1 : 0,
-                //                     }
-                //                 })
-                //             },
-                //         })
-                //     }
-                // },
                 {
                     name: 'host.netstats',
                     handle({scheduler, outputHandler, hostname}) {
