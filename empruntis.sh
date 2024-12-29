@@ -1,1 +1,0 @@
-curl -s https://www.empruntis.com/financement/credit-immobilier-simulation.php | grep "const rate15" | grep -oE '"([0-9,]+)"' | jq -r . | sed s/,/./

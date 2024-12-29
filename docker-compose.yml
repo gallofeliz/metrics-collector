@@ -13,7 +13,6 @@ services:
     network_mode: host
     env_file: .env
 
-
   # influxdb:
   #   restart: unless-stopped
   #   image: influxdb:1.8
